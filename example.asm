@@ -1,4 +1,10 @@
 CLS
-ADD 3, 5
+JP 0xFFF
+JP v0, 0x432
+JP V0, 324
+JP 1932
+LD V0, 0xFF
+LD V2, V4
+LD [I], V0
 ; comment
 CLS

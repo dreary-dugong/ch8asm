@@ -61,6 +61,6 @@ pub fn run(config: Config) -> Result<(), RunError>{
         }
     }
 
-    println!("{:?}", opcodes);
+    println!("{:#02x?}", opcodes);
     Ok(())
 }

@@ -10,8 +10,11 @@ pub enum AsmArgument{
     Register(u8),
     AnyKey,
     IPointer,
+    IRange,
     DelayTimer,
     SoundTimer,
+    Sprite,
+    BCD,
 }
 
 /// An unit-like struct representing an error during any part of argument parsing
@@ -41,8 +44,11 @@ fn parse_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError>{
     match arg {
         "K" | "k" => Ok(AsmArgument::AnyKey),
         "I" | "i" => Ok(AsmArgument::IPointer),
+        "[I]" | "[i]" => Ok(AsmArgument::IRange),
         "DT" | "Dt" | "dT" | "dt" => Ok(AsmArgument::DelayTimer),
         "ST" | "St" | "sT" | "st" => Ok(AsmArgument::SoundTimer),
+        "F" | "f" => Ok(AsmArgument::Sprite),
+        "B" | "b" => Ok(AsmArgument::BCD),
         _ => parse_numeric_asm_arg(arg),
     }
 }
