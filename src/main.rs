@@ -1,4 +1,5 @@
 use std::process;
+use ch8asm::Config;
 
 fn main() {
     if let Err(err) = ch8asm::run(Config::make()){

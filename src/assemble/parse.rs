@@ -1,4 +1,8 @@
-/// An enum reprsenting a possible argument passed to an operation in the assembly code
+use std::num::ParseIntError;
+
+
+
+/// An enum representing a possible argument passed to an operation in the assembly code
 /// It's up to assemble.rs to make sure that the arguments make sense for any given operation
 /// It's also up to assemble.rs to figure out a numeric arg represents and if it's valid
 pub enum AsmArgument{
@@ -22,23 +26,23 @@ impl From<ParseIntError> for AsmArgParseError {
 
 /// Given a collection of string slices, return parsed AsmArgument enums or error if one or more is invalid
 pub fn parse_asm_args(args: &[&str]) -> Result<Vec<AsmArgument>, AsmArgParseError> {
-    let out = Vec::with_capacity(args.len());
+    let mut out = Vec::with_capacity(args.len());
     for arg in args {
         match parse_asm_arg(arg) {
             Ok(asmArg) => out.push(asmArg),
             Err(err) => return Err(err),
         };
     }
-    Ok(out);
+    Ok(out)
 }
 
 /// Given a string slice, parse it into an AsmArgument if possible, otherwise error
 fn parse_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError>{
     match arg {
-        "K" | "k" => Ok(Argument::AnyKey),
-        "I" | "i" => Ok(Argument::IPointer),
-        "DT" | "Dt" | "dT" | "dt" => Ok(Argument::DelayTimer),
-        "ST" | "St" | "sT" | "st" => Ok(Argument::SoundTimer),
+        "K" | "k" => Ok(AsmArgument::AnyKey),
+        "I" | "i" => Ok(AsmArgument::IPointer),
+        "DT" | "Dt" | "dT" | "dt" => Ok(AsmArgument::DelayTimer),
+        "ST" | "St" | "sT" | "st" => Ok(AsmArgument::SoundTimer),
         _ => parse_numeric_asm_arg(arg),
     }
 }
@@ -47,17 +51,19 @@ fn parse_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError>{
 fn parse_numeric_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError> {
     // register
     if arg.starts_with("V") || arg.starts_with("v") {
-        if arg.len != 2 {
-            Err(AsmArgPaseError{})
+        if arg.len() != 2 {
+            Err(AsmArgParseError{})
+        } else {
+            Ok(AsmArgument::Register(u8::from_str_radix(&arg[1..2], 16)?))
         }
-        Ok(AsmArgument::Register(u8::from_str_radix(arg[1], 16)?))
     
     // other numeric arg in hex
     } else if arg.starts_with("0x") {
         if arg.len() < 3 {
             Err(AsmArgParseError{})
+        } else {
+            Ok(AsmArgument::Numeric(u16::from_str_radix(&arg[2..], 16)?))
         }
-        Ok(AsmArgument::Numeric(u16::from_str_radix(arg[2..], 16)?))
 
     // other numeric arg in decimal
     } else {
@@ -66,8 +72,8 @@ fn parse_numeric_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError> {
 }
 
 /// Given an AsmArgument numeric variant, ensure that it represents a valid address and pass back the value
-fn parse_valid_addr(arg: AsmArgument) -> Result<u16, AsmArgParseError> {
-    if let Numeric(addr) = arg {
+pub fn parse_valid_addr(arg: &AsmArgument) -> Result<u16, AsmArgParseError> {
+    if let AsmArgument::Numeric(addr) = *arg {
         if addr <= 0xFFF {
             Ok(addr)
         } else {
@@ -80,8 +86,8 @@ fn parse_valid_addr(arg: AsmArgument) -> Result<u16, AsmArgParseError> {
 }
 
 /// Given an AsmArgument numeric variant, ensure that it represents a valid byte and pass back the value
-fn parse_valid_byte(arg: AsmArgument) -> Result<u8, AsmArgParseError> {
-    if let Numeric(byte) = arg {
+pub fn parse_valid_byte(arg: &AsmArgument) -> Result<u8, AsmArgParseError> {
+    if let AsmArgument::Numeric(byte) = *arg {
         if byte <= 0xFF {
             Ok(byte as u8)
         } else {
@@ -94,8 +100,8 @@ fn parse_valid_byte(arg: AsmArgument) -> Result<u8, AsmArgParseError> {
 }
 
 /// Given an AsmArgument numeric variant, ensure that it represents a valid nibble and pass back the value
-fn parse_valid_nibble(arg: AsmArgument) -> Result<u8, AsmArgParseError> {
-    if let Numeric(nibble) = arg {
+pub fn parse_valid_nibble(arg: &AsmArgument) -> Result<u8, AsmArgParseError> {
+    if let AsmArgument::Numeric(nibble) = *arg {
         if nibble <= 0xF {
             Ok(nibble as u8)
         } else {
