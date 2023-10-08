@@ -15,7 +15,7 @@ impl Config{
 /// The error that gets returned to the caller from our run function
 /// This should only be used to convey a message to the user
 pub struct RunError{
-    msg: String,
+    pub msg: String,
 }
 
 /// Convert an io error and give a helpful error message
