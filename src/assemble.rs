@@ -18,7 +18,9 @@ impl From<AsmArgParseError> for AssembleError{
 
 /// For a line of assembly, emit its machine code
 pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
-    let tokens = inst.split_whitespace().collect::<Vec<&str>>();
+    let tokens = inst.split_whitespace()
+                     .map(|t| t.trim_end_matches(',')) // commas are optional
+                     .collect::<Vec<&str>>();
 
     match *tokens.first().expect("Attempt to parse empty string as instruction") {
         "CLS" => Ok(0x00E0),
