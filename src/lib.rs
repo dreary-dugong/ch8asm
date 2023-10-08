@@ -20,7 +20,7 @@ pub struct RunError{
 
 /// Convert an io error and give a helpful error message
 impl From<io::Error> for RunError{
-    fn from(e: io::Error) -> Self{
+    fn from(_e: io::Error) -> Self{
         Self{msg: String::from("Encountered an issue while attempting to read the file. Does the file exist or is it open in another process?")}
     }
 }
@@ -43,12 +43,12 @@ impl RunError{
 }
 
 /// Run the assembler
-pub fn run<'a>(config: Config) -> Result<(), RunError>{
+pub fn run(config: Config) -> Result<(), RunError>{
     let data = fs::read_to_string("example.asm")?;
     let instructions = data.lines()
                     .map(|l| l.trim())
                     .filter(|l| !l.is_empty())
-                    .filter(|l| !l.starts_with(";"))
+                    .filter(|l| !l.starts_with(';'))
                     .collect::<Vec<&str>>();
 
     let mut opcodes = Vec::with_capacity(instructions.len());

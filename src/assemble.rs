@@ -11,7 +11,7 @@ pub enum AssembleError{
 }
 
 impl From<AsmArgParseError> for AssembleError{
-    fn from(e: AsmArgParseError) -> Self {
+    fn from(_e: AsmArgParseError) -> Self {
         Self::InvalidArg
     }
 }
@@ -20,7 +20,7 @@ impl From<AsmArgParseError> for AssembleError{
 pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
     let tokens = inst.split_whitespace().collect::<Vec<&str>>();
 
-    match *tokens.get(0).expect("Attempt to parse empty string as instruction") {
+    match *tokens.first().expect("Attempt to parse empty string as instruction") {
         "CLS" => Ok(0x00E0),
         "RET" => Ok(0x00EE),
 

@@ -19,7 +19,7 @@ pub enum AsmArgument{
 pub struct AsmArgParseError;
 
 impl From<ParseIntError> for AsmArgParseError {
-    fn from(err: ParseIntError) -> Self {
+    fn from(_err: ParseIntError) -> Self {
         AsmArgParseError{}
     }
 }
@@ -29,7 +29,7 @@ pub fn parse_asm_args(args: &[&str]) -> Result<Vec<AsmArgument>, AsmArgParseErro
     let mut out = Vec::with_capacity(args.len());
     for arg in args {
         match parse_asm_arg(arg) {
-            Ok(asmArg) => out.push(asmArg),
+            Ok(asm_arg) => out.push(asm_arg),
             Err(err) => return Err(err),
         };
     }
@@ -50,7 +50,7 @@ fn parse_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError>{
 /// Given a string slice that can't be any other valid asm_arg, parse it into a valid numeric or register variant, otherwise error
 fn parse_numeric_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError> {
     // register
-    if arg.starts_with("V") || arg.starts_with("v") {
+    if arg.starts_with('V') || arg.starts_with('v') {
         if arg.len() != 2 {
             Err(AsmArgParseError{})
         } else {
@@ -58,16 +58,12 @@ fn parse_numeric_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError> {
         }
     
     // other numeric arg in hex
-    } else if arg.starts_with("0x") {
-        if arg.len() < 3 {
-            Err(AsmArgParseError{})
-        } else {
-            Ok(AsmArgument::Numeric(u16::from_str_radix(&arg[2..], 16)?))
-        }
+    } else if let Some(hex_num) = arg.strip_prefix("0x") {
+        Ok(AsmArgument::Numeric(u16::from_str_radix(hex_num, 16)?))
 
     // other numeric arg in decimal
     } else {
-        Ok(AsmArgument::Numeric(u16::from_str_radix(arg, 10)?))
+        Ok(AsmArgument::Numeric(arg.parse::<u16>()?))
     }
 }
 
