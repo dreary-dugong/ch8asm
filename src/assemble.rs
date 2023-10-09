@@ -30,6 +30,9 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "JP" | "jp" | "jP" | "Jp" => assemble_jp(&tokens),
         "LD" | "ld" | "lD" | "Ld" => assemble_ld(&tokens),
 
+        "SYS" | "sYs" | "Sys" | "syS" | "SYs" | "sYS" | "sys" => assemble_sys(&tokens),
+        "CALL" | "call" => assemble_call(&tokens),
+
 
         _ => Err(AssembleError::UnknownOp),
     }
@@ -168,8 +171,33 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 Err(AssembleError::InvalidArg)
             }
         }
-
     }
+}
 
+/// Given the tokens of a SYS instruction, return its machine code or an error
+// SYS addr - 0nnn
+fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 1 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 1 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        let addr = parse::parse_valid_addr(&args[0])?;
+        Ok(0x0000 + addr)
+    }
+}
 
+/// Given the tokens of a CALL instruction, return its machine code or an error
+// CALL addr - 2nnn
+fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 1 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 1 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        let addr = parse::parse_valid_addr(&args[0])?;
+        Ok(0x2000 + addr)
+    }
 }
