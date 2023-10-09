@@ -43,6 +43,9 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "SUB" | "suB" | "sUb" | "Sub" | "SUb" | "SuB" | "sUB" | "sub" => assemble_sub(&tokens),
         "SUBN" | "subn" => assemble_subn(&tokens),
 
+        "SHR" | "shR" | "sHr" | "Shr" | "SHr" | "ShR" | "sHR" | "shr" => assemble_shr(&tokens),
+        "SHL" | "shL" | "sHl" | "Shl" | "SHl" | "ShL" | "sHL" | "shl" => assemble_shl(&tokens),
+
 
         _ => Err(AssembleError::UnknownOp),
     }
@@ -424,5 +427,67 @@ fn assemble_subn(tokens: &[&str]) -> Result<u16, AssembleError>{
         } else {
             Err(AssembleError::InvalidArg)
         }
+    }
+}
+
+/// Given the tokens of a SHR instruction, return its machine code or an error
+// SHR Vx {, Vy} - 8xy6
+fn assemble_shr(tokens: &[&str]) -> Result<u16, AssembleError>{
+    let args = parse::parse_asm_args(&tokens[1..])?;
+
+    match args.len() {
+        // the second arg is optional
+        1 => {
+            if let AsmArgument::Register(vx) = &args[0] {
+                let vx = *vx as u16;
+                Ok(0x8006 + (vx << 8))
+            } else {
+                Err(AssembleError::InvalidArg)
+            }
+        },
+        
+        2 => {
+            if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]){
+                let vx = *vx as u16;
+                let vy = *vy as u16;
+                Ok(0x8006 + (vx << 8) + (vy << 4))
+            } else {
+                Err(AssembleError::InvalidArg)
+            }
+        }
+
+        0 => Err(AssembleError::MissingArgs),
+        _ => Err(AssembleError::ExtraArgs)
+    }
+}
+
+/// Given the tokens of a SHL instruction, return its machine code or an error
+// SHL Vx {, Vy} - 8xyE
+fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError>{
+    let args = parse::parse_asm_args(&tokens[1..])?;
+
+    match args.len() {
+        // the second arg is optional
+        1 => {
+            if let AsmArgument::Register(vx) = &args[0] {
+                let vx = *vx as u16;
+                Ok(0x800E + (vx << 8))
+            } else {
+                Err(AssembleError::InvalidArg)
+            }
+        },
+        
+        2 => {
+            if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]){
+                let vx = *vx as u16;
+                let vy = *vy as u16;
+                Ok(0x800E + (vx << 8) + (vy << 4))
+            } else {
+                Err(AssembleError::InvalidArg)
+            }
+        }
+
+        0 => Err(AssembleError::MissingArgs),
+        _ => Err(AssembleError::ExtraArgs)
     }
 }
