@@ -49,6 +49,9 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "RND" | "rnD" | "rNd" | "Rnd" | "RNd" | "RnD" | "rND" | "rnd" => assemble_rnd(&tokens),
         "DRW" | "drW" | "dRw" | "Drw" | "DRw" | "DrW" | "dRW" | "drw" => assemble_drw(&tokens),
 
+        "SKP" | "skP" | "sKp" | "Skp" | "SKp" | "SkP" | "sKP" | "skp" => assemble_skp(&tokens),
+        "SKNP" | "sknp" => assemble_sknp(&tokens),
+
 
         _ => Err(AssembleError::UnknownOp),
     }
@@ -528,6 +531,42 @@ fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError>{
             let vy = *vy as u16;
             let nibble = parse::parse_valid_nibble(&args[1])? as u16;
             Ok(0xC000 + (vx << 8) + (vy << 4) + nibble)
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
+    }
+}
+
+/// Given the tokens of a SKP instruction, return its machine code or an error
+// SKP Vx - Ex9E
+fn assemble_skp(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 2 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 2 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let AsmArgument::Register(vx) = &args[0]{
+            let vx = *vx as u16;
+            Ok(0xE09E + (vx << 8))
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
+    }
+}
+
+/// Given the tokens of a SKNP instruction, return its machine code or an error
+// SKNP Vx - ExA1
+fn assemble_sknp(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 2 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 2 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let AsmArgument::Register(vx) = &args[0]{
+            let vx = *vx as u16;
+            Ok(0xE0A1 + (vx << 8))
         } else {
             Err(AssembleError::InvalidArg)
         }
