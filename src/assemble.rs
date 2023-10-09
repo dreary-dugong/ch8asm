@@ -32,6 +32,7 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
 
         "SYS" | "sYs" | "Sys" | "syS" | "SYs" | "sYS" | "sys" => assemble_sys(&tokens),
         "CALL" | "call" => assemble_call(&tokens),
+        "SE" | "sE" | "Se" | "se" => assemble_se(&tokens),
 
 
         _ => Err(AssembleError::UnknownOp),
@@ -177,9 +178,9 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
 /// Given the tokens of a SYS instruction, return its machine code or an error
 // SYS addr - 0nnn
 fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError>{
-    if tokens.len() < 1 {
+    if tokens.len() < 2 {
         Err(AssembleError::MissingArgs)
-    } else if tokens.len() > 1 {
+    } else if tokens.len() > 2 {
         Err(AssembleError::ExtraArgs)
     } else {
         let args = parse::parse_asm_args(&tokens[1..])?;
@@ -191,13 +192,48 @@ fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError>{
 /// Given the tokens of a CALL instruction, return its machine code or an error
 // CALL addr - 2nnn
 fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError>{
-    if tokens.len() < 1 {
+    if tokens.len() < 2 {
         Err(AssembleError::MissingArgs)
-    } else if tokens.len() > 1 {
+    } else if tokens.len() > 2 {
         Err(AssembleError::ExtraArgs)
     } else {
         let args = parse::parse_asm_args(&tokens[1..])?;
         let addr = parse::parse_valid_addr(&args[0])?;
         Ok(0x2000 + addr)
+    }
+}
+
+/// Given the tokens of a SE instruction, return its machine code or an error
+fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+
+        match (&args[0], &args[1]) {
+            // SE Vx, byte - 3xkk
+            (AsmArgument::Register(vx), AsmArgument::Numeric(_)) => {
+                let mut out = 0x3000;
+                let vx = *vx as u16;
+                out += vx << 8;
+                out += parse::parse_valid_byte(&args[2])? as u16;
+                Ok(out)
+            }
+            // SE Vx, Vy - 5xy0
+            (AsmArgument::Register(vx), AsmArgument::Register(vy)) => {
+                let mut out = 0x5000;
+                let vx = *vx as u16;
+                let vy = *vy as u16;
+                out += vx << 8;
+                out += vy << 4;
+                Ok(out)
+            }
+
+             (_, _) => {
+                Err(AssembleError::InvalidArg)
+             }
+        }
     }
 }
