@@ -36,6 +36,10 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "SNE" | "snE" | "sNe" | "Sne" | "SNe" | "SnE" | "sNE" | "sne" => assemble_sne(&tokens),
         "ADD" | "adD" | "aDd" | "Add" | "ADd" | "AdD" | "aDD" | "add" => assemble_add(&tokens),
 
+        "OR" | "or" | "oR" | "Or" => assemble_or(&tokens),
+        "AND" | "anD" | "aNd" | "And" | "ANd" | "AnD" | "aND" | "and" => assemble_and(&tokens),
+        "XOR" | "xoR" | "xOr" | "Xor" | "XOr" | "XoR" | "xOR" | "xor" => assemble_xor(&tokens),
+
 
         _ => Err(AssembleError::UnknownOp),
     }
@@ -186,8 +190,12 @@ fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError>{
         Err(AssembleError::ExtraArgs)
     } else {
         let args = parse::parse_asm_args(&tokens[1..])?;
-        let addr = parse::parse_valid_addr(&args[0])?;
-        Ok(0x0000 + addr)
+        if let AsmArgument::Numeric(_) = args[0] {
+            let addr = parse::parse_valid_addr(&args[0])?;
+            Ok(0x0000 + addr)
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
     }
 }
 
@@ -200,8 +208,12 @@ fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError>{
         Err(AssembleError::ExtraArgs)
     } else {
         let args = parse::parse_asm_args(&tokens[1..])?;
-        let addr = parse::parse_valid_addr(&args[0])?;
-        Ok(0x2000 + addr)
+        if let AsmArgument::Numeric(_) = args[0] {
+            let addr = parse::parse_valid_addr(&args[0])?;
+            Ok(0x2000 + addr)
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
     }
 }
 
@@ -313,6 +325,63 @@ fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError>{
              (_, _) => {
                 Err(AssembleError::InvalidArg)
              }
+        }
+    }
+}
+
+/// Given the tokens of a OR instruction, return its machine code or an error
+// OR Vx, Vy - 8xy1
+fn assemble_or(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]) {
+            let vx = *vx as u16;
+            let vy = *vy as u16;
+            Ok(0x8001 + (vx << 8) + (vy << 4))
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
+    }
+}
+
+/// Given the tokens of a AND instruction, return its machine code or an error
+// OR Vx, Vy - 8xy2
+fn assemble_and(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]) {
+            let vx = *vx as u16;
+            let vy = *vy as u16;
+            Ok(0x8002 + (vx << 8) + (vy << 4))
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
+    }
+}
+
+/// Given the tokens of a XOR instruction, return its machine code or an error
+// OR Vx, Vy - 8xy3
+fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]) {
+            let vx = *vx as u16;
+            let vy = *vy as u16;
+            Ok(0x8003 + (vx << 8) + (vy << 4))
+        } else {
+            Err(AssembleError::InvalidArg)
         }
     }
 }
