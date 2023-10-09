@@ -47,6 +47,7 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "SHL" | "shL" | "sHl" | "Shl" | "SHl" | "ShL" | "sHL" | "shl" => assemble_shl(&tokens),
 
         "RND" | "rnD" | "rNd" | "Rnd" | "RNd" | "RnD" | "rND" | "rnd" => assemble_rnd(&tokens),
+        "DRW" | "drW" | "dRw" | "Drw" | "DRw" | "DrW" | "dRW" | "drw" => assemble_drw(&tokens),
 
 
         _ => Err(AssembleError::UnknownOp),
@@ -507,6 +508,26 @@ fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError>{
             let vx = *vx as u16;
             let byte = parse::parse_valid_byte(&args[1])? as u16;
             Ok(0xC000 + (vx << 8) + byte)
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
+    }
+}
+
+/// Given the tokens of a DRW instruction, return its machine code or an error
+// DRW Vx, Vy, nibble - Dxyn
+fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 4 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 4 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let (AsmArgument::Register(vx), AsmArgument::Register(vy), AsmArgument::Numeric(_)) = (&args[0], &args[1], &args[2]) {
+            let vx = *vx as u16;
+            let vy = *vy as u16;
+            let nibble = parse::parse_valid_nibble(&args[1])? as u16;
+            Ok(0xC000 + (vx << 8) + (vy << 4) + nibble)
         } else {
             Err(AssembleError::InvalidArg)
         }
