@@ -250,7 +250,7 @@ fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let mut out = 0x3000;
                 let vx = *vx as u16;
                 out += vx << 8;
-                out += parse::parse_valid_byte(&args[2])? as u16;
+                out += parse::parse_valid_byte(&args[1])? as u16;
                 Ok(out)
             }
             // SE Vx, Vy - 5xy0
@@ -285,7 +285,7 @@ fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let mut out = 0x4000;
                 let vx = *vx as u16;
                 out += vx << 8;
-                out += parse::parse_valid_byte(&args[2])? as u16;
+                out += parse::parse_valid_byte(&args[1])? as u16;
                 Ok(out)
             }
             // SNE Vx, Vy - 9xy0
@@ -320,7 +320,7 @@ fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let mut out = 0x7000;
                 let vx = *vx as u16;
                 out += vx << 8;
-                out += parse::parse_valid_byte(&args[2])? as u16;
+                out += parse::parse_valid_byte(&args[1])? as u16;
                 Ok(out)
             }
             // ADD Vx, Vy - 8xy4
@@ -535,7 +535,7 @@ fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError>{
         if let (AsmArgument::Register(vx), AsmArgument::Register(vy), AsmArgument::Numeric(_)) = (&args[0], &args[1], &args[2]) {
             let vx = *vx as u16;
             let vy = *vy as u16;
-            let nibble = parse::parse_valid_nibble(&args[1])? as u16;
+            let nibble = parse::parse_valid_nibble(&args[2])? as u16;
             Ok(0xC000 + (vx << 8) + (vy << 4) + nibble)
         } else {
             Err(AssembleError::InvalidArg)
