@@ -33,6 +33,7 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "SYS" | "sYs" | "Sys" | "syS" | "SYs" | "sYS" | "sys" => assemble_sys(&tokens),
         "CALL" | "call" => assemble_call(&tokens),
         "SE" | "sE" | "Se" | "se" => assemble_se(&tokens),
+        "SNE" | "snE" | "sNe" | "Sne" | "SNe" | "sNE" | "sne" => assemble_sne(&tokens),
 
 
         _ => Err(AssembleError::UnknownOp),
@@ -224,6 +225,41 @@ fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError>{
             // SE Vx, Vy - 5xy0
             (AsmArgument::Register(vx), AsmArgument::Register(vy)) => {
                 let mut out = 0x5000;
+                let vx = *vx as u16;
+                let vy = *vy as u16;
+                out += vx << 8;
+                out += vy << 4;
+                Ok(out)
+            }
+
+             (_, _) => {
+                Err(AssembleError::InvalidArg)
+             }
+        }
+    }
+}
+
+/// Given the tokens of a SNE instruction, return its machine code or an error
+fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+
+        match (&args[0], &args[1]) {
+            // SNE Vx, byte - 4xkk
+            (AsmArgument::Register(vx), AsmArgument::Numeric(_)) => {
+                let mut out = 0x4000;
+                let vx = *vx as u16;
+                out += vx << 8;
+                out += parse::parse_valid_byte(&args[2])? as u16;
+                Ok(out)
+            }
+            // SNE Vx, Vy - 9xy0
+            (AsmArgument::Register(vx), AsmArgument::Register(vy)) => {
+                let mut out = 0x9000;
                 let vx = *vx as u16;
                 let vy = *vy as u16;
                 out += vx << 8;
