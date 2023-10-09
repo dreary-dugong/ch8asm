@@ -46,6 +46,8 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "SHR" | "shR" | "sHr" | "Shr" | "SHr" | "ShR" | "sHR" | "shr" => assemble_shr(&tokens),
         "SHL" | "shL" | "sHl" | "Shl" | "SHl" | "ShL" | "sHL" | "shl" => assemble_shl(&tokens),
 
+        "RND" | "rnD" | "rNd" | "Rnd" | "RNd" | "RnD" | "rND" | "rnd" => assemble_rnd(&tokens),
+
 
         _ => Err(AssembleError::UnknownOp),
     }
@@ -489,5 +491,24 @@ fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError>{
 
         0 => Err(AssembleError::MissingArgs),
         _ => Err(AssembleError::ExtraArgs)
+    }
+}
+
+/// Given the tokens of a RND instruction, return its machine code or an error
+// RND Vx, byte - Cxkk
+fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let (AsmArgument::Register(vx), AsmArgument::Numeric(_)) = (&args[0], &args[1]) {
+            let vx = *vx as u16;
+            let byte = parse::parse_valid_byte(&args[1])? as u16;
+            Ok(0xC000 + (vx << 8) + byte)
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
     }
 }
