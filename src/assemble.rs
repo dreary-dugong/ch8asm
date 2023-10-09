@@ -53,7 +53,13 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "SKNP" | "sknp" => assemble_sknp(&tokens),
 
 
-        _ => Err(AssembleError::UnknownOp),
+        other => {
+            if other.starts_with("0x") && tokens.len() == 1{
+                Ok(parse::parse_raw(&tokens)?)
+            } else {
+                Err(AssembleError::UnknownOp)
+            }
+        }
     }
 }
 

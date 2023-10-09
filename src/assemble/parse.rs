@@ -115,8 +115,14 @@ pub fn parse_valid_nibble(arg: &AsmArgument) -> Result<u8, AsmArgParseError> {
     }
 }
 
+/// Given a slice of string tokens, either convert from hex u16 or error
+pub fn parse_raw(tokens: &[&str]) -> Result<u16, AsmArgParseError>{
+    let num;
+    if tokens.len() == 1 && tokens[0].starts_with("0x") {
+        num = tokens[0].strip_prefix("0x").unwrap();
+    } else {
+        return Err(AsmArgParseError{})
+    }
 
-
-
-
-
+    Ok(u16::from_str_radix(num, 16)?)
+}
