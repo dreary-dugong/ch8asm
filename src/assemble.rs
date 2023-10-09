@@ -40,6 +40,9 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "AND" | "anD" | "aNd" | "And" | "ANd" | "AnD" | "aND" | "and" => assemble_and(&tokens),
         "XOR" | "xoR" | "xOr" | "Xor" | "XOr" | "XoR" | "xOR" | "xor" => assemble_xor(&tokens),
 
+        "SUB" | "suB" | "sUb" | "Sub" | "SUb" | "SuB" | "sUB" | "sub" => assemble_sub(&tokens),
+        "SUBN" | "subn" => assemble_subn(&tokens),
+
 
         _ => Err(AssembleError::UnknownOp),
     }
@@ -380,6 +383,44 @@ fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError>{
             let vx = *vx as u16;
             let vy = *vy as u16;
             Ok(0x8003 + (vx << 8) + (vy << 4))
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
+    }
+}
+
+/// Given the tokens of a SUB instruction, return its machine code or an error
+// SUB Vx, Vy - 8xy5
+fn assemble_sub(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]) {
+            let vx = *vx as u16;
+            let vy = *vy as u16;
+            Ok(0x8005 + (vx << 8) + (vy << 4))
+        } else {
+            Err(AssembleError::InvalidArg)
+        }
+    }
+}
+
+/// Given the tokens of a XOR instruction, return its machine code or an error
+// SUBN Vx, Vy - 8xy7
+fn assemble_subn(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+        if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]) {
+            let vx = *vx as u16;
+            let vy = *vy as u16;
+            Ok(0x8007 + (vx << 8) + (vy << 4))
         } else {
             Err(AssembleError::InvalidArg)
         }
