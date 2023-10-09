@@ -30,10 +30,11 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "JP" | "jp" | "jP" | "Jp" => assemble_jp(&tokens),
         "LD" | "ld" | "lD" | "Ld" => assemble_ld(&tokens),
 
-        "SYS" | "sYs" | "Sys" | "syS" | "SYs" | "sYS" | "sys" => assemble_sys(&tokens),
+        "SYS" | "sYs" | "Sys" | "syS" | "SYs" | "sYS" | "SyS" | "sys" => assemble_sys(&tokens),
         "CALL" | "call" => assemble_call(&tokens),
         "SE" | "sE" | "Se" | "se" => assemble_se(&tokens),
-        "SNE" | "snE" | "sNe" | "Sne" | "SNe" | "sNE" | "sne" => assemble_sne(&tokens),
+        "SNE" | "snE" | "sNe" | "Sne" | "SNe" | "SnE" | "sNE" | "sne" => assemble_sne(&tokens),
+        "ADD" | "adD" | "aDd" | "Add" | "ADd" | "AdD" | "aDD" | "add" => assemble_add(&tokens),
 
 
         _ => Err(AssembleError::UnknownOp),
@@ -264,6 +265,48 @@ fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vy = *vy as u16;
                 out += vx << 8;
                 out += vy << 4;
+                Ok(out)
+            }
+
+             (_, _) => {
+                Err(AssembleError::InvalidArg)
+             }
+        }
+    }
+}
+
+/// Given the tokens of a ADD instruction, return its machine code or an error
+fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError>{
+    if tokens.len() < 3 {
+        Err(AssembleError::MissingArgs)
+    } else if tokens.len() > 3 {
+        Err(AssembleError::ExtraArgs)
+    } else {
+        let args = parse::parse_asm_args(&tokens[1..])?;
+
+        match (&args[0], &args[1]) {
+            // ADD Vx, byte - 7xkk
+            (AsmArgument::Register(vx), AsmArgument::Numeric(_)) => {
+                let mut out = 0x7000;
+                let vx = *vx as u16;
+                out += vx << 8;
+                out += parse::parse_valid_byte(&args[2])? as u16;
+                Ok(out)
+            }
+            // ADD Vx, Vy - 8xy4
+            (AsmArgument::Register(vx), AsmArgument::Register(vy)) => {
+                let mut out = 0x8004;
+                let vx = *vx as u16;
+                let vy = *vy as u16;
+                out += vx << 8;
+                out += vy << 4;
+                Ok(out)
+            }
+            // ADD I, Vx - Fx1E 
+            (AsmArgument::IPointer, AsmArgument::Register(vx)) => {
+                let mut out = 0xF01E;
+                let vx = *vx as u16;
+                out += vx << 8;
                 Ok(out)
             }
 
