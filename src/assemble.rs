@@ -1,28 +1,32 @@
 mod parse;
-use parse::{AsmArgument, AsmArgParseError};
+use parse::{AsmArgParseError, AsmArgument};
 
 /// An error that occured while parsing the assembly string
 #[derive(Debug)]
-pub enum AssembleError{
+pub enum AssembleError {
     UnknownOp,
     MissingArgs,
     ExtraArgs,
     InvalidArg,
 }
 
-impl From<AsmArgParseError> for AssembleError{
+impl From<AsmArgParseError> for AssembleError {
     fn from(_e: AsmArgParseError) -> Self {
         Self::InvalidArg
     }
 }
 
 /// For a line of assembly, emit its machine code
-pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
-    let tokens = inst.split_whitespace()
-                     .map(|t| t.trim_end_matches(',')) // commas are optional
-                     .collect::<Vec<&str>>();
+pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError> {
+    let tokens = inst
+        .split_whitespace()
+        .map(|t| t.trim_end_matches(',')) // commas are optional
+        .collect::<Vec<&str>>();
 
-    match *tokens.first().expect("Attempt to parse empty string as instruction") {
+    match *tokens
+        .first()
+        .expect("Attempt to parse empty string as instruction")
+    {
         // TODO: check for too many args on cls and ret
         "CLS" => Ok(0x00E0),
         "RET" => Ok(0x00EE),
@@ -52,9 +56,8 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
         "SKP" | "skP" | "sKp" | "Skp" | "SKp" | "SkP" | "sKP" | "skp" => assemble_skp(&tokens),
         "SKNP" | "sknp" => assemble_sknp(&tokens),
 
-
         other => {
-            if other.starts_with("0x") && tokens.len() == 1{
+            if other.starts_with("0x") && tokens.len() == 1 {
                 Ok(parse::parse_raw(&tokens)?)
             } else {
                 Err(AssembleError::UnknownOp)
@@ -64,8 +67,7 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError>{
 }
 
 /// Given the tokens of a jp instrutction, return its machine code or an error
-fn assemble_jp(tokens: &[&str]) -> Result<u16, AssembleError>{
-
+fn assemble_jp(tokens: &[&str]) -> Result<u16, AssembleError> {
     let args = parse::parse_asm_args(&tokens[1..])?;
     match args.len() {
         // JP addr - 1nnn
@@ -75,23 +77,21 @@ fn assemble_jp(tokens: &[&str]) -> Result<u16, AssembleError>{
         }
 
         // JP V0, addr - Bnnn
-        2 => {
-            match args[0] {
-                AsmArgument::Register(0u8) =>  {
-                    let addr = parse::parse_valid_addr(&args[1])?;
-                    Ok(0xB000 + addr)
-                }
-                _ => Err(AssembleError::InvalidArg)
+        2 => match args[0] {
+            AsmArgument::Register(0u8) => {
+                let addr = parse::parse_valid_addr(&args[1])?;
+                Ok(0xB000 + addr)
             }
-        }
+            _ => Err(AssembleError::InvalidArg),
+        },
 
         0 => Err(AssembleError::MissingArgs),
-        _ => Err(AssembleError::ExtraArgs)
+        _ => Err(AssembleError::ExtraArgs),
     }
 }
 
 /// Given the tokens of a LD instruction, return its machine code or an error
-fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -108,7 +108,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 out += vx << 8;
                 out += vy << 4;
                 Ok(out)
-            },
+            }
 
             // LD Vx, byte - 6xkk
             (AsmArgument::Register(vx), AsmArgument::Numeric(_)) => {
@@ -118,7 +118,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 out += vx << 8;
                 out += byte;
                 Ok(out)
-            },
+            }
 
             // LD I, addr - Annn
             (AsmArgument::IPointer, AsmArgument::Numeric(_)) => {
@@ -126,7 +126,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let addr = parse::parse_valid_addr(&args[1])?;
                 out += addr;
                 Ok(out)
-            },
+            }
 
             // LD Vx, DT - Fx07
             (AsmArgument::Register(vx), AsmArgument::DelayTimer) => {
@@ -134,7 +134,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vx = *vx as u16;
                 out += vx << 8;
                 Ok(out)
-            },
+            }
 
             // LD Vx, K - Fx0A
             (AsmArgument::Register(vx), AsmArgument::AnyKey) => {
@@ -142,7 +142,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vx = *vx as u16;
                 out += vx << 8;
                 Ok(out)
-            },
+            }
 
             // LD DT, Vx - Fx15
             (AsmArgument::DelayTimer, AsmArgument::Register(vx)) => {
@@ -150,7 +150,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vx = *vx as u16;
                 out += vx << 8;
                 Ok(out)
-            },
+            }
 
             // LD ST, Vx - Fx18
             (AsmArgument::SoundTimer, AsmArgument::Register(vx)) => {
@@ -158,7 +158,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vx = *vx as u16;
                 out += vx << 8;
                 Ok(out)
-            },
+            }
 
             // LD F, Vx - Fx29
             (AsmArgument::Sprite, AsmArgument::Register(vx)) => {
@@ -166,7 +166,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vx = *vx as u16;
                 out += vx << 8;
                 Ok(out)
-            },
+            }
 
             // LD B, Vx - Fx33
             (AsmArgument::BCD, AsmArgument::Register(vx)) => {
@@ -174,7 +174,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vx = *vx as u16;
                 out += vx << 8;
                 Ok(out)
-            },
+            }
 
             // LD [I], Vx - Fx55
             (AsmArgument::IRange, AsmArgument::Register(vx)) => {
@@ -182,7 +182,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 let vx = *vx as u16;
                 out += vx << 8;
                 Ok(out)
-            },
+            }
 
             // LD Vx, [I] - Fx65
             (AsmArgument::Register(vx), AsmArgument::IRange) => {
@@ -191,17 +191,15 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError>{
                 out += vx << 8;
                 Ok(out)
             }
-            
-            (_, _) => {
-                Err(AssembleError::InvalidArg)
-            }
+
+            (_, _) => Err(AssembleError::InvalidArg),
         }
     }
 }
 
 /// Given the tokens of a SYS instruction, return its machine code or an error
 // SYS addr - 0nnn
-fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 2 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 2 {
@@ -219,7 +217,7 @@ fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a CALL instruction, return its machine code or an error
 // CALL addr - 2nnn
-fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 2 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 2 {
@@ -236,7 +234,7 @@ fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError>{
 }
 
 /// Given the tokens of a SE instruction, return its machine code or an error
-fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -263,15 +261,13 @@ fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError>{
                 Ok(out)
             }
 
-             (_, _) => {
-                Err(AssembleError::InvalidArg)
-             }
+            (_, _) => Err(AssembleError::InvalidArg),
         }
     }
 }
 
 /// Given the tokens of a SNE instruction, return its machine code or an error
-fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -298,15 +294,13 @@ fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError>{
                 Ok(out)
             }
 
-             (_, _) => {
-                Err(AssembleError::InvalidArg)
-             }
+            (_, _) => Err(AssembleError::InvalidArg),
         }
     }
 }
 
 /// Given the tokens of a ADD instruction, return its machine code or an error
-fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -332,7 +326,7 @@ fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError>{
                 out += vy << 4;
                 Ok(out)
             }
-            // ADD I, Vx - Fx1E 
+            // ADD I, Vx - Fx1E
             (AsmArgument::IPointer, AsmArgument::Register(vx)) => {
                 let mut out = 0xF01E;
                 let vx = *vx as u16;
@@ -340,16 +334,14 @@ fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError>{
                 Ok(out)
             }
 
-             (_, _) => {
-                Err(AssembleError::InvalidArg)
-             }
+            (_, _) => Err(AssembleError::InvalidArg),
         }
     }
 }
 
 /// Given the tokens of a OR instruction, return its machine code or an error
 // OR Vx, Vy - 8xy1
-fn assemble_or(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_or(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -368,7 +360,7 @@ fn assemble_or(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a AND instruction, return its machine code or an error
 // OR Vx, Vy - 8xy2
-fn assemble_and(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_and(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -387,7 +379,7 @@ fn assemble_and(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a XOR instruction, return its machine code or an error
 // OR Vx, Vy - 8xy3
-fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -406,7 +398,7 @@ fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a SUB instruction, return its machine code or an error
 // SUB Vx, Vy - 8xy5
-fn assemble_sub(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_sub(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -425,7 +417,7 @@ fn assemble_sub(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a XOR instruction, return its machine code or an error
 // SUBN Vx, Vy - 8xy7
-fn assemble_subn(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_subn(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -444,7 +436,7 @@ fn assemble_subn(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a SHR instruction, return its machine code or an error
 // SHR Vx {, Vy} - 8xy6
-fn assemble_shr(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_shr(tokens: &[&str]) -> Result<u16, AssembleError> {
     let args = parse::parse_asm_args(&tokens[1..])?;
 
     match args.len() {
@@ -456,10 +448,10 @@ fn assemble_shr(tokens: &[&str]) -> Result<u16, AssembleError>{
             } else {
                 Err(AssembleError::InvalidArg)
             }
-        },
-        
+        }
+
         2 => {
-            if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]){
+            if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]) {
                 let vx = *vx as u16;
                 let vy = *vy as u16;
                 Ok(0x8006 + (vx << 8) + (vy << 4))
@@ -469,13 +461,13 @@ fn assemble_shr(tokens: &[&str]) -> Result<u16, AssembleError>{
         }
 
         0 => Err(AssembleError::MissingArgs),
-        _ => Err(AssembleError::ExtraArgs)
+        _ => Err(AssembleError::ExtraArgs),
     }
 }
 
 /// Given the tokens of a SHL instruction, return its machine code or an error
 // SHL Vx {, Vy} - 8xyE
-fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError> {
     let args = parse::parse_asm_args(&tokens[1..])?;
 
     match args.len() {
@@ -487,10 +479,10 @@ fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError>{
             } else {
                 Err(AssembleError::InvalidArg)
             }
-        },
-        
+        }
+
         2 => {
-            if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]){
+            if let (AsmArgument::Register(vx), AsmArgument::Register(vy)) = (&args[0], &args[1]) {
                 let vx = *vx as u16;
                 let vy = *vy as u16;
                 Ok(0x800E + (vx << 8) + (vy << 4))
@@ -500,13 +492,13 @@ fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError>{
         }
 
         0 => Err(AssembleError::MissingArgs),
-        _ => Err(AssembleError::ExtraArgs)
+        _ => Err(AssembleError::ExtraArgs),
     }
 }
 
 /// Given the tokens of a RND instruction, return its machine code or an error
 // RND Vx, byte - Cxkk
-fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 3 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 3 {
@@ -525,14 +517,16 @@ fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a DRW instruction, return its machine code or an error
 // DRW Vx, Vy, nibble - Dxyn
-fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 4 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 4 {
         Err(AssembleError::ExtraArgs)
     } else {
         let args = parse::parse_asm_args(&tokens[1..])?;
-        if let (AsmArgument::Register(vx), AsmArgument::Register(vy), AsmArgument::Numeric(_)) = (&args[0], &args[1], &args[2]) {
+        if let (AsmArgument::Register(vx), AsmArgument::Register(vy), AsmArgument::Numeric(_)) =
+            (&args[0], &args[1], &args[2])
+        {
             let vx = *vx as u16;
             let vy = *vy as u16;
             let nibble = parse::parse_valid_nibble(&args[2])? as u16;
@@ -545,14 +539,14 @@ fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a SKP instruction, return its machine code or an error
 // SKP Vx - Ex9E
-fn assemble_skp(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_skp(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 2 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 2 {
         Err(AssembleError::ExtraArgs)
     } else {
         let args = parse::parse_asm_args(&tokens[1..])?;
-        if let AsmArgument::Register(vx) = &args[0]{
+        if let AsmArgument::Register(vx) = &args[0] {
             let vx = *vx as u16;
             Ok(0xE09E + (vx << 8))
         } else {
@@ -563,14 +557,14 @@ fn assemble_skp(tokens: &[&str]) -> Result<u16, AssembleError>{
 
 /// Given the tokens of a SKNP instruction, return its machine code or an error
 // SKNP Vx - ExA1
-fn assemble_sknp(tokens: &[&str]) -> Result<u16, AssembleError>{
+fn assemble_sknp(tokens: &[&str]) -> Result<u16, AssembleError> {
     if tokens.len() < 2 {
         Err(AssembleError::MissingArgs)
     } else if tokens.len() > 2 {
         Err(AssembleError::ExtraArgs)
     } else {
         let args = parse::parse_asm_args(&tokens[1..])?;
-        if let AsmArgument::Register(vx) = &args[0]{
+        if let AsmArgument::Register(vx) = &args[0] {
             let vx = *vx as u16;
             Ok(0xE0A1 + (vx << 8))
         } else {
