@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Write, Read};
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -94,7 +94,7 @@ pub fn run(config: Config) -> Result<(), RunError> {
     let input_data = match config.input_config {
         InputConfig::Stdin => {
             let mut buf = String::new();
-            io::stdin().read_line(&mut buf)?;
+            io::stdin().read_to_string(&mut buf)?;
             buf
         }
         InputConfig::File(f) => fs::read_to_string(f)?,
