@@ -530,7 +530,7 @@ fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError> {
             let vx = *vx as u16;
             let vy = *vy as u16;
             let nibble = parse::parse_valid_nibble(&args[2])? as u16;
-            Ok(0xC000 + (vx << 8) + (vy << 4) + nibble)
+            Ok(0xD000 + (vx << 8) + (vy << 4) + nibble)
         } else {
             Err(AssembleError::InvalidArg)
         }
