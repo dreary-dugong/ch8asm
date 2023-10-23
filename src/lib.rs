@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 
+mod preprocess;
+use preprocess::PreprocessingError;
 mod assemble;
 use assemble::AssembleError;
 
@@ -70,6 +72,13 @@ impl From<io::Error> for RunError {
     }
 }
 
+/// Convert a preprocessing error and give a helpful error message
+impl From<PreprocessingError> for RunError {
+    fn from(_e: PreprocessingError) -> Self {
+        Self{msg: String::from("Error encountered during preprocessing. Are your aliases valid? TODO: make this helpful")}
+    }
+}
+
 /// Convert an AssembleError and give a helpful error message
 /// Note that we can't implement the from trait here because we need to know
 /// which instruction caused the error in order to form the message
@@ -101,22 +110,16 @@ pub fn run(config: Config) -> Result<(), RunError> {
     };
 
     // process input into vec of instruction strings
-    let instructions = input_data
-        .lines()
-        .map(|l| l.trim()) // remove leading and trailing whitespace
-        .filter(|l| !l.is_empty()) // remove empty lines
-        .filter(|l| !l.starts_with(';')) // remove comments
-        .collect::<Vec<&str>>();
+    let instructions = preprocess::preprocess(&input_data)?;
 
     // assemble instructions into individual opcodes
     // we need a for loop here in order to return a specific error
     let mut opcodes: Vec<u16> = Vec::with_capacity(instructions.len());
 
     for instruction in &instructions {
-        let instruction = *instruction;
-        match assemble::assemble_instruction(instruction) {
+        match assemble::assemble_instruction(&instruction) {
             Ok(opcode) => opcodes.push(opcode),
-            Err(e) => return Err(RunError::from(e, instruction)),
+            Err(e) => return Err(RunError::from(e, &instruction)),
         }
     }
 
