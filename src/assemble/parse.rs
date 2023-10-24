@@ -65,6 +65,10 @@ fn parse_numeric_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError> {
     } else if let Some(hex_num) = arg.strip_prefix("0x") {
         Ok(AsmArgument::Numeric(u16::from_str_radix(hex_num, 16)?))
 
+    // other numeric arg in binary
+    } else if let Some(hex_num) = arg.strip_prefix("0b") {
+        Ok(AsmArgument::Numeric(u16::from_str_radix(hex_num, 2)?))
+
     // other numeric arg in decimal
     } else {
         Ok(AsmArgument::Numeric(arg.parse::<u16>()?))
