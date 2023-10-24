@@ -30,11 +30,13 @@ pub enum PreprocessingError {
     TooManyAliasArgs,
     TooFewAliasArgs,
     ReusedAlias,
+    InvalidLabel,
+    ReusedLabel,
 }
 
 pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
     // clean up the input before starting preprocessing
-    let lines = unprocessed
+    let mut lines = unprocessed
         .lines()
         .map(|l| l.trim()) // remove leading and trailing whitespace
         .filter(|l| !l.is_empty()) // remove empty lines
@@ -45,7 +47,8 @@ pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, Pre
             acc
         });
 
-    evaluate_aliases(lines)
+    lines = evaluate_aliases(lines)?;
+    evaluate_labels(lines)
 }
 
 fn evaluate_aliases(
@@ -101,6 +104,67 @@ fn evaluate_aliases(
 
         if let Some(replacement) = replace_with {
             to_replace.push((i, replacement));
+        }
+    }
+
+    for (i, replacement) in to_replace.into_iter() {
+        lines[i] = PreprocessedInstruction::Changed(replacement);
+    }
+
+    Ok(lines)
+}
+
+/// Find label declarations in instructions, remove them, and replace references to them with corresponding memory addresses
+/// Label syntax is `label:\n`
+fn evaluate_labels(
+    mut lines: Vec<PreprocessedInstruction>,
+) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
+    let mut label_map: HashMap<String, usize> = HashMap::new();
+    let mut to_remove = Vec::new();
+
+    // find labels, record where the point to, and remove them
+    for (i, line) in lines.iter().enumerate() {
+        if line.ends_with(':') {
+            let label = line.trim_end_matches(':');
+            // labels can't contain spaces because that's how we separate tokens
+            if label.contains(char::is_whitespace) {
+                return Err(PreprocessingError::InvalidLabel);
+
+            // the program starts at 0x200 and each instruction is 2 bytes so our label address is 0x200 + 2 times the number of instructions before
+            } else if label_map
+                .insert(label.to_string(), (i - to_remove.len()) * 2 + 0x200)
+                .is_some()
+            {
+                return Err(PreprocessingError::ReusedLabel);
+            } else {
+                to_remove.push(i);
+            }
+        }
+    }
+
+    for i in to_remove.into_iter() {
+        lines.remove(i);
+    }
+
+    // find where labels are used and replace them with their addresses
+    let mut to_replace: Vec<(usize, String)> = Vec::new();
+    let mut curr_inst_as_string = String::new();
+    for (i, line) in lines.iter().enumerate() {
+        let mut replace_this_line = false;
+        for token in line.split_whitespace() {
+            if let Some(addr) = label_map.get(token) {
+                curr_inst_as_string.push_str(&format!(" 0x{:x}", addr));
+                replace_this_line = true;
+            } else {
+                curr_inst_as_string.push(' ');
+                curr_inst_as_string.push_str(token);
+            }
+        }
+        if replace_this_line {
+            to_replace.push((i, curr_inst_as_string));
+            curr_inst_as_string = String::new();
+        } else {
+            curr_inst_as_string.clear();
         }
     }
 
