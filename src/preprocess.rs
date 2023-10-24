@@ -1,6 +1,11 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
+
+const RESERVED_WORDS: [&str; 21] = [
+    "CLS", "RET", "SYS", "JP", "CALL", "SE", "LD", "ADD", "OR", "AND", "XOR", "SUB", "SHR", "SHL",
+    "SUBN", "SNE", "RND", "DRW", "SKP", "SKNP", "alias",
+];
 
 /// To save allocations, we represent the instructions as an enum after processing so some can use the original string views while others are new strings
 pub enum PreprocessedInstruction<'a> {
@@ -29,7 +34,9 @@ impl<'a> From<&'a str> for PreprocessedInstruction<'a> {
 pub enum PreprocessingError {
     TooManyAliasArgs,
     TooFewAliasArgs,
+    ReservedAlias,
     ReusedAlias,
+    ReservedLabel,
     InvalidLabel,
     ReusedLabel,
 }
@@ -54,6 +61,7 @@ pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, Pre
 fn evaluate_aliases(
     mut lines: Vec<PreprocessedInstruction>,
 ) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
+    let reserved: HashSet<&str> = HashSet::from(RESERVED_WORDS);
     let mut alias_map: HashMap<String, String> = HashMap::new();
 
     // find aliases
@@ -68,6 +76,11 @@ fn evaluate_aliases(
 
                 Ordering::Equal => {
                     let key = tokens[1].trim_end_matches(',').to_string(); // remove comma
+                                                                           // check if the alias is a reserved word
+                    if reserved.contains(&*key) {
+                        return Err(PreprocessingError::ReservedAlias);
+                    }
+                    // check if the alias has already been declared
                     if alias_map.insert(key, tokens[2].to_string()).is_some() {
                         return Err(PreprocessingError::ReusedAlias);
                     } else {
@@ -119,6 +132,7 @@ fn evaluate_aliases(
 fn evaluate_labels(
     mut lines: Vec<PreprocessedInstruction>,
 ) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
+    let reserved = HashSet::from(RESERVED_WORDS);
     let mut label_map: HashMap<String, usize> = HashMap::new();
     let mut to_remove = Vec::new();
 
@@ -129,6 +143,9 @@ fn evaluate_labels(
             // labels can't contain spaces because that's how we separate tokens
             if label.contains(char::is_whitespace) {
                 return Err(PreprocessingError::InvalidLabel);
+            // check if the label is a reserved word
+            } else if reserved.contains(label) {
+                return Err(PreprocessingError::ReservedLabel);
 
             // the program starts at 0x200 and each instruction is 2 bytes so our label address is 0x200 + 2 times the number of instructions before
             } else if label_map
