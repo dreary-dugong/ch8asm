@@ -102,21 +102,25 @@ fn evaluate_aliases(
 
     // replace aliases
     let mut to_replace: Vec<(usize, String)> = Vec::new();
+    let mut curr_inst_as_string = String::new();
     for (i, line) in lines.iter().enumerate() {
-        let mut replace_with = None;
-        // a side effect of this is some weird undefined behavior when an alias contains another alias that's decared after it
-        // I wanted to avoid alias ordering mattering but solving this problem is beyond what I feel like dealing with
+        let mut replace_this_line = false;
+
         for token in line.split_whitespace().map(|s| s.trim_end_matches(',')) {
+            curr_inst_as_string.push(' ');
             if let Some(alias_val) = alias_map.get(token) {
-                replace_with = match replace_with {
-                    None => Some(line.to_string().replace(token, alias_val)),
-                    Some(s) => Some(s.replace(token, alias_val)),
-                }
+                curr_inst_as_string.push_str(alias_val);
+                replace_this_line = true;
+            } else {
+                curr_inst_as_string.push_str(token);
             }
         }
 
-        if let Some(replacement) = replace_with {
-            to_replace.push((i, replacement));
+        if replace_this_line {
+            to_replace.push((i, curr_inst_as_string));
+            curr_inst_as_string = String::new();
+        } else {
+            curr_inst_as_string.clear();
         }
     }
 
@@ -168,6 +172,7 @@ fn evaluate_labels(
     let mut curr_inst_as_string = String::new();
     for (i, line) in lines.iter().enumerate() {
         let mut replace_this_line = false;
+
         for token in line.split_whitespace() {
             if let Some(addr) = label_map.get(token) {
                 curr_inst_as_string.push_str(&format!(" 0x{:x}", addr));
@@ -177,6 +182,7 @@ fn evaluate_labels(
                 curr_inst_as_string.push_str(token);
             }
         }
+
         if replace_this_line {
             to_replace.push((i, curr_inst_as_string));
             curr_inst_as_string = String::new();
