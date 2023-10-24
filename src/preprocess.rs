@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::ops::Deref;
 
@@ -31,9 +32,7 @@ pub enum PreprocessingError {
     ReusedAlias,
 }
 
-pub fn preprocess<'a>(
-    unprocessed: &'a str,
-) -> Result<Vec<PreprocessedInstruction<'a>>, PreprocessingError> {
+pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
     // clean up the input before starting preprocessing
     let lines = unprocessed
         .lines()
@@ -49,9 +48,9 @@ pub fn preprocess<'a>(
     evaluate_aliases(lines)
 }
 
-fn evaluate_aliases<'a>(
-    mut lines: Vec<PreprocessedInstruction<'a>>,
-) -> Result<Vec<PreprocessedInstruction<'a>>, PreprocessingError> {
+fn evaluate_aliases(
+    mut lines: Vec<PreprocessedInstruction>,
+) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
     let mut alias_map: HashMap<String, String> = HashMap::new();
 
     // find aliases
@@ -60,22 +59,23 @@ fn evaluate_aliases<'a>(
         if line.starts_with("alias") {
             // check for a valid alias
             let tokens = line.split_whitespace().collect::<Vec<&str>>();
-            if tokens.len() < 3 {
-                return Err(PreprocessingError::TooFewAliasArgs);
-            } else if tokens.len() > 3 {
-                return Err(PreprocessingError::TooManyAliasArgs);
-            } else {
-                alias_map.insert(
-                    // remove comma
-                    tokens[1].trim_end_matches(',').to_string(),
-                    tokens[2].to_string(),
-                );
-                to_remove.push(i);
+            match tokens.len().cmp(&3) {
+                Ordering::Greater => return Err(PreprocessingError::TooManyAliasArgs),
+                Ordering::Less => return Err(PreprocessingError::TooFewAliasArgs),
+
+                Ordering::Equal => {
+                    alias_map.insert(
+                        // remove comma
+                        tokens[1].trim_end_matches(',').to_string(),
+                        tokens[2].to_string(),
+                    );
+                    to_remove.push(i);
+                }
             }
         }
     }
 
-    if alias_map.len() == 0 {
+    if alias_map.is_empty() {
         return Ok(lines);
     }
 

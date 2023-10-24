@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{self, Write, Read};
+use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -98,7 +98,6 @@ impl RunError {
 
 /// Run the assembler
 pub fn run(config: Config) -> Result<(), RunError> {
-
     // read our input
     let input_data = match config.input_config {
         InputConfig::Stdin => {
@@ -117,23 +116,22 @@ pub fn run(config: Config) -> Result<(), RunError> {
     let mut opcodes: Vec<u16> = Vec::with_capacity(instructions.len());
 
     for instruction in &instructions {
-        match assemble::assemble_instruction(&instruction) {
+        match assemble::assemble_instruction(instruction) {
             Ok(opcode) => opcodes.push(opcode),
-            Err(e) => return Err(RunError::from(e, &instruction)),
+            Err(e) => return Err(RunError::from(e, instruction)),
         }
     }
 
     // convert opcodes into byte array in order to write rom
     let out_bytes = opcodes
         .into_iter()
-        .map(|op| op.to_be_bytes())
-        .flatten()
+        .flat_map(|op| op.to_be_bytes())
         .collect::<Vec<u8>>();
 
     // write to output
     match config.output_config {
         OutputConfig::File(f) => fs::write(f, out_bytes)?,
-        OutputConfig::Stdout => io::stdout().write_all(&out_bytes)?
+        OutputConfig::Stdout => io::stdout().write_all(&out_bytes)?,
     };
 
     Ok(())

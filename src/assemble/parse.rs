@@ -12,7 +12,7 @@ pub enum AsmArgument {
     DelayTimer,
     SoundTimer,
     Sprite,
-    BCD,
+    Bcd,
 }
 
 /// An unit-like struct representing an error during any part of argument parsing
@@ -46,7 +46,7 @@ fn parse_asm_arg(arg: &str) -> Result<AsmArgument, AsmArgParseError> {
         "DT" | "Dt" | "dT" | "dt" => Ok(AsmArgument::DelayTimer),
         "ST" | "St" | "sT" | "st" => Ok(AsmArgument::SoundTimer),
         "F" | "f" => Ok(AsmArgument::Sprite),
-        "B" | "b" => Ok(AsmArgument::BCD),
+        "B" | "b" => Ok(AsmArgument::Bcd),
         _ => parse_numeric_asm_arg(arg),
     }
 }
@@ -112,12 +112,10 @@ pub fn parse_valid_nibble(arg: &AsmArgument) -> Result<u8, AsmArgParseError> {
 
 /// Given a slice of string tokens, either convert from hex u16 or error
 pub fn parse_raw(tokens: &[&str]) -> Result<u16, AsmArgParseError> {
-    let num;
-    if tokens.len() == 1 && tokens[0].starts_with("0x") {
-        num = tokens[0].strip_prefix("0x").unwrap();
+    if tokens.len() != 1 || !tokens[0].starts_with("0x") {
+        Err(AsmArgParseError)
     } else {
-        return Err(AsmArgParseError {});
+        let num = tokens[0].strip_prefix("0x").unwrap();
+        Ok(u16::from_str_radix(num, 16)?)
     }
-
-    Ok(u16::from_str_radix(num, 16)?)
 }
