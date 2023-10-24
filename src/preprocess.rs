@@ -117,7 +117,7 @@ fn evaluate_aliases(
         }
 
         if replace_this_line {
-            to_replace.push((i, curr_inst_as_string));
+            to_replace.push((i, String::from(curr_inst_as_string.trim())));
             curr_inst_as_string = String::new();
         } else {
             curr_inst_as_string.clear();
@@ -174,7 +174,7 @@ fn evaluate_labels(
         let mut replace_this_line = false;
 
         for token in line.split_whitespace() {
-            if let Some(addr) = label_map.get(token) {
+            if let Some(addr) = label_map.get(token.trim_end_matches(',')) {
                 curr_inst_as_string.push_str(&format!(" 0x{:x}", addr));
                 replace_this_line = true;
             } else {
