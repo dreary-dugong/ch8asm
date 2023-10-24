@@ -64,12 +64,12 @@ fn evaluate_aliases(
                 Ordering::Less => return Err(PreprocessingError::TooFewAliasArgs),
 
                 Ordering::Equal => {
-                    alias_map.insert(
-                        // remove comma
-                        tokens[1].trim_end_matches(',').to_string(),
-                        tokens[2].to_string(),
-                    );
-                    to_remove.push(i);
+                    let key = tokens[1].trim_end_matches(',').to_string(); // remove comma
+                    if alias_map.insert(key, tokens[2].to_string()).is_some() {
+                        return Err(PreprocessingError::ReusedAlias);
+                    } else {
+                        to_remove.push(i);
+                    }
                 }
             }
         }
