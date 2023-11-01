@@ -2,3 +2,5 @@
 *.asm
 *.ch8
 launch.json
+.vscode/*
+todo.txt

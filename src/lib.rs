@@ -3,6 +3,7 @@ use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 use clap::Parser;
+use thiserror::Error;
 
 mod preprocess;
 use preprocess::PreprocessingError;
@@ -61,39 +62,14 @@ impl Config {
 
 /// The error that gets returned to the caller from our run function
 /// This should only be used to convey a message to the user
-pub struct RunError {
-    pub msg: String,
-}
-
-/// Convert an io error and give a helpful error message
-impl From<io::Error> for RunError {
-    fn from(_e: io::Error) -> Self {
-        Self{msg: String::from("Encountered an issue while attempting to read or write to file. Does the file exist or is it open in another process?")}
-    }
-}
-
-/// Convert a preprocessing error and give a helpful error message
-impl From<PreprocessingError> for RunError {
-    fn from(_e: PreprocessingError) -> Self {
-        Self{msg: String::from("Error encountered during preprocessing. Are your aliases valid? TODO: make this helpful")}
-    }
-}
-
-/// Convert an AssembleError and give a helpful error message
-/// Note that we can't implement the from trait here because we need to know
-/// which instruction caused the error in order to form the message
-impl RunError {
-    fn from(e: AssembleError, badinst: &str) -> Self {
-        let mut out = String::from("Encountered an error while parsing:\n\t");
-        match e {
-            AssembleError::UnknownOp => out.push_str("Use of unknown operation at: "),
-            AssembleError::MissingArgs => out.push_str("Missing one or more arguments at: "),
-            AssembleError::ExtraArgs => out.push_str("Use of too many arguments at: "),
-            AssembleError::InvalidArg => out.push_str("Use of one or more invalid arguments at: "),
-        }
-        out.push_str(badinst);
-        Self { msg: out }
-    }
+#[derive(Error, Debug)]
+pub enum RunError {
+    #[error("encounterd an issue while attempting to read or write file; does thie file exist? do you have permission? is it open in another process?")]
+    IoError(#[from] io::Error),
+    #[error("{0}")]
+    Preprocessing(#[from] PreprocessingError),
+    #[error("{0}")]
+    Assemble(#[from] AssembleError),
 }
 
 /// Run the assembler
@@ -118,7 +94,7 @@ pub fn run(config: Config) -> Result<(), RunError> {
     for instruction in &instructions {
         match assemble::assemble_instruction(instruction) {
             Ok(opcode) => opcodes.push(opcode),
-            Err(e) => return Err(RunError::from(e, instruction)),
+            Err(e) => return Err(RunError::from(e)),
         }
     }
 

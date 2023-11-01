@@ -1,4 +1,5 @@
 use std::num::ParseIntError;
+use thiserror::Error;
 
 /// An enum representing a possible argument passed to an operation in the assembly code
 /// It's up to assemble.rs to make sure that the arguments make sense for any given operation
@@ -17,6 +18,8 @@ pub enum AsmArgument {
 
 /// An unit-like struct representing an error during any part of argument parsing
 /// More precise error returns may be added at a later date
+#[derive(Debug, Error)]
+#[error("Error occurred while parsing argument for asm instruction")]
 pub struct AsmArgParseError;
 
 impl From<ParseIntError> for AsmArgParseError {

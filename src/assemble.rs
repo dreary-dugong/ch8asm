@@ -1,20 +1,21 @@
 use std::cmp::Ordering;
+use thiserror::Error;
 mod parse;
 use parse::{AsmArgParseError, AsmArgument};
 
 /// An error that occured while parsing the assembly string
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AssembleError {
-    UnknownOp,
-    MissingArgs,
-    ExtraArgs,
-    InvalidArg,
-}
-
-impl From<AsmArgParseError> for AssembleError {
-    fn from(_e: AsmArgParseError) -> Self {
-        Self::InvalidArg
-    }
+    #[error("Use of unknown operation: {0}")]
+    UnknownOp(String),
+    #[error("Missing arguments for operation: {0}")]
+    MissingArgs(String),
+    #[error("Too many arguments for operation: {0}")]
+    ExtraArgs(String),
+    #[error("Invalid argument for operation: {0}")]
+    InvalidArg(String),
+    #[error("Unable to parse argument: {0}")]
+    BadParse(#[from] AsmArgParseError),
 }
 
 /// For a line of assembly, emit its machine code
@@ -61,7 +62,7 @@ pub fn assemble_instruction(inst: &str) -> Result<u16, AssembleError> {
             if other.starts_with("0x") && tokens.len() == 1 {
                 Ok(parse::parse_raw(&tokens)?)
             } else {
-                Err(AssembleError::UnknownOp)
+                Err(AssembleError::UnknownOp(inst.to_string()))
             }
         }
     }
@@ -83,11 +84,11 @@ fn assemble_jp(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let addr = parse::parse_valid_addr(&args[1])?;
                 Ok(0xB000 + addr)
             }
-            _ => Err(AssembleError::InvalidArg),
+            _ => Err(AssembleError::InvalidArg(tokens.join(" "))),
         },
 
-        0 => Err(AssembleError::MissingArgs),
-        _ => Err(AssembleError::ExtraArgs),
+        0 => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        _ => Err(AssembleError::ExtraArgs(tokens.join(" "))),
     }
 }
 
@@ -95,8 +96,8 @@ fn assemble_jp(tokens: &[&str]) -> Result<u16, AssembleError> {
 fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError> {
     // handle errors for bad number of args
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -194,7 +195,7 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError> {
                     Ok(out)
                 }
 
-                (_, _) => Err(AssembleError::InvalidArg),
+                (_, _) => Err(AssembleError::InvalidArg(tokens.join(" "))),
             }
         }
     }
@@ -204,8 +205,8 @@ fn assemble_ld(tokens: &[&str]) -> Result<u16, AssembleError> {
 // SYS addr - 0nnn
 fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&2) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -214,7 +215,7 @@ fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError> {
                 #[allow(clippy::identity_op)] // Leaving the opcode here makes the code clearer
                 Ok(0x0000 + addr)
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -224,8 +225,8 @@ fn assemble_sys(tokens: &[&str]) -> Result<u16, AssembleError> {
 // CALL addr - 2nnn
 fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&2) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -233,7 +234,7 @@ fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let addr = parse::parse_valid_addr(&args[0])?;
                 Ok(0x2000 + addr)
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -242,8 +243,8 @@ fn assemble_call(tokens: &[&str]) -> Result<u16, AssembleError> {
 /// Given the tokens of a SE instruction, return its machine code or an error
 fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -267,7 +268,7 @@ fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError> {
                     Ok(out)
                 }
 
-                (_, _) => Err(AssembleError::InvalidArg),
+                (_, _) => Err(AssembleError::InvalidArg(tokens.join(" "))),
             }
         }
     }
@@ -276,8 +277,8 @@ fn assemble_se(tokens: &[&str]) -> Result<u16, AssembleError> {
 /// Given the tokens of a SNE instruction, return its machine code or an error
 fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -301,7 +302,7 @@ fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError> {
                     Ok(out)
                 }
 
-                (_, _) => Err(AssembleError::InvalidArg),
+                (_, _) => Err(AssembleError::InvalidArg(tokens.join(" "))),
             }
         }
     }
@@ -310,8 +311,8 @@ fn assemble_sne(tokens: &[&str]) -> Result<u16, AssembleError> {
 /// Given the tokens of a ADD instruction, return its machine code or an error
 fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -342,7 +343,7 @@ fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError> {
                     Ok(out)
                 }
 
-                (_, _) => Err(AssembleError::InvalidArg),
+                (_, _) => Err(AssembleError::InvalidArg(tokens.join(" "))),
             }
         }
     }
@@ -352,8 +353,8 @@ fn assemble_add(tokens: &[&str]) -> Result<u16, AssembleError> {
 // OR Vx, Vy - 8xy1
 fn assemble_or(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -362,7 +363,7 @@ fn assemble_or(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vy = *vy as u16;
                 Ok(0x8001 + (vx << 8) + (vy << 4))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -372,8 +373,8 @@ fn assemble_or(tokens: &[&str]) -> Result<u16, AssembleError> {
 // OR Vx, Vy - 8xy2
 fn assemble_and(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -382,7 +383,7 @@ fn assemble_and(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vy = *vy as u16;
                 Ok(0x8002 + (vx << 8) + (vy << 4))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -392,8 +393,8 @@ fn assemble_and(tokens: &[&str]) -> Result<u16, AssembleError> {
 // OR Vx, Vy - 8xy3
 fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -402,7 +403,7 @@ fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vy = *vy as u16;
                 Ok(0x8003 + (vx << 8) + (vy << 4))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -412,8 +413,8 @@ fn assemble_xor(tokens: &[&str]) -> Result<u16, AssembleError> {
 // SUB Vx, Vy - 8xy5
 fn assemble_sub(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -422,7 +423,7 @@ fn assemble_sub(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vy = *vy as u16;
                 Ok(0x8005 + (vx << 8) + (vy << 4))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -432,8 +433,8 @@ fn assemble_sub(tokens: &[&str]) -> Result<u16, AssembleError> {
 // SUBN Vx, Vy - 8xy7
 fn assemble_subn(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -442,7 +443,7 @@ fn assemble_subn(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vy = *vy as u16;
                 Ok(0x8007 + (vx << 8) + (vy << 4))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -460,7 +461,7 @@ fn assemble_shr(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vx = *vx as u16;
                 Ok(0x8006 + (vx << 8))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
 
@@ -470,12 +471,12 @@ fn assemble_shr(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vy = *vy as u16;
                 Ok(0x8006 + (vx << 8) + (vy << 4))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
 
-        0 => Err(AssembleError::MissingArgs),
-        _ => Err(AssembleError::ExtraArgs),
+        0 => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        _ => Err(AssembleError::ExtraArgs(tokens.join(" "))),
     }
 }
 
@@ -491,7 +492,7 @@ fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vx = *vx as u16;
                 Ok(0x800E + (vx << 8))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
 
@@ -501,12 +502,12 @@ fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vy = *vy as u16;
                 Ok(0x800E + (vx << 8) + (vy << 4))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
 
-        0 => Err(AssembleError::MissingArgs),
-        _ => Err(AssembleError::ExtraArgs),
+        0 => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        _ => Err(AssembleError::ExtraArgs(tokens.join(" "))),
     }
 }
 
@@ -514,8 +515,8 @@ fn assemble_shl(tokens: &[&str]) -> Result<u16, AssembleError> {
 // RND Vx, byte - Cxkk
 fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&3) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -524,7 +525,7 @@ fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let byte = parse::parse_valid_byte(&args[1])? as u16;
                 Ok(0xC000 + (vx << 8) + byte)
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -534,8 +535,8 @@ fn assemble_rnd(tokens: &[&str]) -> Result<u16, AssembleError> {
 // DRW Vx, Vy, nibble - Dxyn
 fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&4) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -547,7 +548,7 @@ fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let nibble = parse::parse_valid_nibble(&args[2])? as u16;
                 Ok(0xD000 + (vx << 8) + (vy << 4) + nibble)
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -557,8 +558,8 @@ fn assemble_drw(tokens: &[&str]) -> Result<u16, AssembleError> {
 // SKP Vx - Ex9E
 fn assemble_skp(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&2) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -566,7 +567,7 @@ fn assemble_skp(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vx = *vx as u16;
                 Ok(0xE09E + (vx << 8))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }
@@ -576,8 +577,8 @@ fn assemble_skp(tokens: &[&str]) -> Result<u16, AssembleError> {
 // SKNP Vx - ExA1
 fn assemble_sknp(tokens: &[&str]) -> Result<u16, AssembleError> {
     match tokens.len().cmp(&2) {
-        Ordering::Less => Err(AssembleError::MissingArgs),
-        Ordering::Greater => Err(AssembleError::ExtraArgs),
+        Ordering::Less => Err(AssembleError::MissingArgs(tokens.join(" "))),
+        Ordering::Greater => Err(AssembleError::ExtraArgs(tokens.join(" "))),
 
         Ordering::Equal => {
             let args = parse::parse_asm_args(&tokens[1..])?;
@@ -585,7 +586,7 @@ fn assemble_sknp(tokens: &[&str]) -> Result<u16, AssembleError> {
                 let vx = *vx as u16;
                 Ok(0xE0A1 + (vx << 8))
             } else {
-                Err(AssembleError::InvalidArg)
+                Err(AssembleError::InvalidArg(tokens.join(" ")))
             }
         }
     }

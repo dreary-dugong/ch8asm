@@ -2,6 +2,9 @@ use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::ops::Deref;
 
+use thiserror::Error;
+
+/// strings that shouldn't be used as aliases or labels because they have other meanings
 const RESERVED_WORDS: [&str; 21] = [
     "CLS", "RET", "SYS", "JP", "CALL", "SE", "LD", "ADD", "OR", "AND", "XOR", "SUB", "SHR", "SHL",
     "SUBN", "SNE", "RND", "DRW", "SKP", "SKNP", "alias",
@@ -30,15 +33,22 @@ impl<'a> From<&'a str> for PreprocessedInstruction<'a> {
     }
 }
 
-// TODO: add error info here
+#[derive(Debug, Error)]
 pub enum PreprocessingError {
-    TooManyAliasArgs,
-    TooFewAliasArgs,
-    ReservedAlias,
-    ReusedAlias,
-    ReservedLabel,
-    InvalidLabel,
-    ReusedLabel,
+    #[error("Too many arguments for `alias` preprocessor instruction: {0}")]
+    TooManyAliasArgs(String),
+    #[error("Too few arguments for `alias` preprocessor instruction: {0}")]
+    TooFewAliasArgs(String),
+    #[error("Use of reserved word in alias: {0}")]
+    ReservedAlias(String),
+    #[error("Reused alias in alias declaration: {0}")]
+    ReusedAlias(String),
+    #[error("Use of reserved word in label: {0}")]
+    ReservedLabel(String),
+    #[error("Invalid label (probably contains whitespace): {0}")]
+    InvalidLabel(String),
+    #[error("Reused label in label declaration: {0}")]
+    ReusedLabel(String),
 }
 
 pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
@@ -71,18 +81,22 @@ fn evaluate_aliases(
             // check for a valid alias
             let tokens = line.split_whitespace().collect::<Vec<&str>>();
             match tokens.len().cmp(&3) {
-                Ordering::Greater => return Err(PreprocessingError::TooManyAliasArgs),
-                Ordering::Less => return Err(PreprocessingError::TooFewAliasArgs),
+                Ordering::Greater => {
+                    return Err(PreprocessingError::TooManyAliasArgs(line.to_string()))
+                }
+                Ordering::Less => {
+                    return Err(PreprocessingError::TooFewAliasArgs(line.to_string()))
+                }
 
                 Ordering::Equal => {
                     let key = tokens[1].trim_end_matches(',').to_string(); // remove comma
                                                                            // check if the alias is a reserved word
                     if reserved.contains(&*key) {
-                        return Err(PreprocessingError::ReservedAlias);
+                        return Err(PreprocessingError::ReservedAlias(line.to_string()));
                     }
                     // check if the alias has already been declared
                     if alias_map.insert(key, tokens[2].to_string()).is_some() {
-                        return Err(PreprocessingError::ReusedAlias);
+                        return Err(PreprocessingError::ReusedAlias(line.to_string()));
                     } else {
                         to_remove.push(i);
                     }
@@ -146,17 +160,17 @@ fn evaluate_labels(
             let label = line.trim_end_matches(':');
             // labels can't contain spaces because that's how we separate tokens
             if label.contains(char::is_whitespace) {
-                return Err(PreprocessingError::InvalidLabel);
+                return Err(PreprocessingError::InvalidLabel(line.to_string()));
             // check if the label is a reserved word
             } else if reserved.contains(label) {
-                return Err(PreprocessingError::ReservedLabel);
+                return Err(PreprocessingError::ReservedLabel(line.to_string()));
 
             // the program starts at 0x200 and each instruction is 2 bytes so our label address is 0x200 + 2 times the number of instructions before
             } else if label_map
                 .insert(label.to_string(), (i - to_remove.len()) * 2 + 0x200)
                 .is_some()
             {
-                return Err(PreprocessingError::ReusedLabel);
+                return Err(PreprocessingError::ReusedLabel(line.to_string()));
             } else {
                 to_remove.push(i);
             }
