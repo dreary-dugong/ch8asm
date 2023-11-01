@@ -11,6 +11,7 @@ const RESERVED_WORDS: [&str; 21] = [
 ];
 
 /// To save allocations, we represent the instructions as an enum after processing so some can use the original string views while others are new strings
+#[derive(Debug)]
 pub enum PreprocessedInstruction<'a> {
     Unchanged(&'a str),
     Changed(String),
@@ -110,8 +111,8 @@ fn evaluate_aliases(
     }
 
     // remove alias declarations from instructions
-    for index in &to_remove {
-        lines.remove(*index);
+    for (i, index) in to_remove.into_iter().enumerate() {
+        lines.remove(index - i);
     }
 
     // replace aliases
@@ -177,8 +178,8 @@ fn evaluate_labels(
         }
     }
 
-    for i in to_remove.into_iter() {
-        lines.remove(i);
+    for (i, index) in to_remove.into_iter().enumerate() {
+        lines.remove(index - i);
     }
 
     // find where labels are used and replace them with their addresses

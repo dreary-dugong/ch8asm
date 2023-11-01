@@ -92,10 +92,7 @@ pub fn run(config: Config) -> Result<(), RunError> {
     let mut opcodes: Vec<u16> = Vec::with_capacity(instructions.len());
 
     for instruction in &instructions {
-        match assemble::assemble_instruction(instruction) {
-            Ok(opcode) => opcodes.push(opcode),
-            Err(e) => return Err(RunError::from(e)),
-        }
+        opcodes.push(assemble::assemble_instruction(instruction)?);
     }
 
     // convert opcodes into byte array in order to write rom
