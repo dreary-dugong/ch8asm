@@ -65,11 +65,23 @@ impl Config {
 #[derive(Error, Debug)]
 pub enum RunError {
     #[error("encounterd an issue while attempting to read or write file; does thie file exist? do you have permission? is it open in another process?")]
-    IoError(#[from] io::Error),
+    IoError(
+        #[from]
+        #[source]
+        io::Error,
+    ),
     #[error("{0}")]
-    Preprocessing(#[from] PreprocessingError),
+    Preprocessing(
+        #[from]
+        #[source]
+        PreprocessingError,
+    ),
     #[error("{0}")]
-    Assemble(#[from] AssembleError),
+    Assemble(
+        #[from]
+        #[source]
+        AssembleError,
+    ),
 }
 
 /// Run the assembler

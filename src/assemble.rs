@@ -15,7 +15,11 @@ pub enum AssembleError {
     #[error("Invalid argument for operation: {0}")]
     InvalidArg(String),
     #[error("Unable to parse argument: {0}")]
-    BadParse(#[from] AsmArgParseError),
+    BadParse(
+        #[from]
+        #[source]
+        AsmArgParseError,
+    ),
 }
 
 /// For a line of assembly, emit its machine code
