@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 use thiserror::Error;
-mod parse;
+pub mod parse;
 use parse::{AsmArgParseError, AsmArgument};
 
 /// An error that occured while parsing the assembly string

@@ -4,6 +4,9 @@ use std::ops::Deref;
 
 use thiserror::Error;
 
+// the module path could be cleaned up a bit to make this nicer
+use super::assemble::parse::{self, AsmArgParseError};
+
 /// strings that shouldn't be used as aliases or labels because they have other meanings
 const RESERVED_WORDS: [&str; 21] = [
     "CLS", "RET", "SYS", "JP", "CALL", "SE", "LD", "ADD", "OR", "AND", "XOR", "SUB", "SHR", "SHL",
@@ -44,6 +47,16 @@ pub enum PreprocessingError {
     ReservedAlias(String),
     #[error("Reused alias in alias declaration: {0}")]
     ReusedAlias(String),
+    #[error("Too many arguments for `sprite` preprocessor instruction: {0}")]
+    TooManySpriteArgs(String),
+    #[error("Too few arguments for `sprite` preprocessor instruction: {0}")]
+    TooFewSpriteArgs(String),
+    #[error("Missing 'endsprite' instruction for sprite delcared with {0}")]
+    UnclosedSprite(String),
+    #[error("Sprite of over 15 bytes delcared with {0}")]
+    OversizedSprite(String),
+    #[error("unable to parse byte in sprite: {0}")]
+    InvalidSpriteByte(#[from] AsmArgParseError),
     #[error("Use of reserved word in label: {0}")]
     ReservedLabel(String),
     #[error("Invalid label (probably contains whitespace): {0}")]
@@ -66,6 +79,7 @@ pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, Pre
         });
 
     lines = evaluate_aliases(lines)?;
+    lines = evaluate_sprites(lines)?;
     evaluate_labels(lines)
 }
 
@@ -144,6 +158,121 @@ fn evaluate_aliases(
     }
 
     Ok(lines)
+}
+
+/// Find sprite blocks, condense the bytes into raw hex strings and replace the sprite declaration with a label
+/// sprite syntax is `sprite NAME` (with an optional colon), any number of bytes beginning with 0b then `endsprite`
+fn evaluate_sprites(
+    mut lines: Vec<PreprocessedInstruction>,
+) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
+    let mut to_change: Vec<(usize, PreprocessedInstruction)> = Vec::new();
+    let mut to_remove: Vec<usize> = Vec::new();
+    // iterate over the lines, looking for sprite instructions
+    let mut i = 0;
+    while i < lines.len() {
+        let cur_line = &lines[i];
+
+        if cur_line.starts_with("sprite") {
+            // once we have a sprite instruction, make sure it's valid
+            let tokens = cur_line.split_whitespace().collect::<Vec<_>>();
+            match tokens.len().cmp(&2) {
+                Ordering::Less => {
+                    return Err(PreprocessingError::TooFewSpriteArgs(cur_line.to_string()))
+                }
+                Ordering::Greater => {
+                    return Err(PreprocessingError::TooManySpriteArgs(cur_line.to_string()))
+                }
+
+                // find the end of the sprite, pair up bytes, and convert to raws
+                Ordering::Equal => {
+                    let sprite_start = i;
+                    while &*lines[i] != "endsprite" {
+                        // this is cursed
+                        i += 1;
+                        if i == lines.len() {
+                            return Err(PreprocessingError::UnclosedSprite(cur_line.to_string()));
+                        }
+                    }
+                    let sprite_end = i;
+                    if sprite_end - sprite_start > 16 {
+                        return Err(PreprocessingError::OversizedSprite(cur_line.to_string()));
+                    };
+                    process_sprite(
+                        &mut lines,
+                        sprite_start,
+                        sprite_end,
+                        &mut to_change,
+                        &mut to_remove,
+                    )?;
+                }
+            }
+        }
+        i += 1;
+    }
+
+    for (i, change_to) in to_change.into_iter() {
+        lines[i] = change_to;
+    }
+
+    for (i, index) in to_remove.into_iter().enumerate() {
+        lines.remove(index - i);
+    }
+
+    Ok(lines)
+}
+
+/// Given the bounds of a sprite declared in lines, record the necessary changes to process it, or error if it can't be parsed
+fn process_sprite(
+    lines: &mut [PreprocessedInstruction],
+    start: usize,
+    end: usize,
+    change_list: &mut Vec<(usize, PreprocessedInstruction)>,
+    remove_list: &mut Vec<usize>,
+) -> Result<(), PreprocessingError> {
+    // I beg your forgiveness for this unholy abomination
+    let sprite_bytes = parse::parse_asm_args(
+        // convert our preprocessed instructions into string slices in order to use our parse module
+        &(lines[start + 1..end]
+            .iter()
+            .map(|l| &**l)
+            .collect::<Vec<_>>()),
+    )?
+    .into_iter()
+    .map(|arg| parse::parse_valid_byte(&arg).map_err(PreprocessingError::from))
+    .collect::<Result<Vec<u8>, PreprocessingError>>()?;
+
+    // pair up bytes and convert to u16
+    let raws = sprite_bytes
+        .chunks(2)
+        .map(|chunk| ((chunk[0] as u16) << 8) + if chunk.len() == 2 { chunk[1] as u16 } else { 0 });
+
+    // we're going to convert the sprite block into a label and raws, so let's start with the label
+    let mut new_label = lines[start]
+        .strip_prefix("sprite")
+        .expect("We check that this starts with sprite in the calling context")
+        .trim()
+        .to_string();
+    if !new_label.ends_with(':') {
+        new_label.push(':')
+    };
+    change_list.push((start, PreprocessedInstruction::Changed(new_label)));
+
+    let remove_threshold = start + raws.len() + 1;
+
+    // record changes from bytes to raws
+    for (i, raw) in raws.into_iter().enumerate() {
+        change_list.push((
+            start + 1 + i,
+            PreprocessedInstruction::Changed(format!("{raw:#X}")),
+        ));
+    }
+
+    // record deletions for extra bytes
+    for i in remove_threshold..=end {
+        remove_list.push(i);
+    }
+
+    Ok(())
 }
 
 /// Find label declarations in instructions, remove them, and replace references to them with corresponding memory addresses
