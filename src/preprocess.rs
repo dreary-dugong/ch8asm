@@ -71,7 +71,12 @@ pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, Pre
         .lines()
         .map(|l| l.trim()) // remove leading and trailing whitespace
         .filter(|l| !l.is_empty()) // remove empty lines
-        .filter(|l| !l.starts_with(';')) // remove comments
+        .filter(|l| !l.starts_with(';')) // remove comment lines
+        // remove comments at the ends of lines
+        .map(|l| match l.find(';') {
+            None => l,
+            Some(i) => &l[..i],
+        })
         // convert into preprocessedinstruction enums
         .fold(Vec::new(), |mut acc, l| {
             acc.push(PreprocessedInstruction::from(l));
