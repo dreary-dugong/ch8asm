@@ -61,6 +61,8 @@ pub enum PreprocessingError {
     ReservedLabel(String),
     #[error("Invalid label (probably contains whitespace): {0}")]
     InvalidLabel(String),
+    #[error("Invalid memory offset (probably contains nonnumeric characters): {0}")]
+    InvalidOffset(String),
     #[error("Reused label in label declaration: {0}")]
     ReusedLabel(String),
 }
@@ -85,6 +87,7 @@ pub fn preprocess(unprocessed: &str) -> Result<Vec<PreprocessedInstruction>, Pre
 
     lines = evaluate_aliases(lines)?;
     lines = evaluate_sprites(lines)?;
+    lines = evaluate_memory_offsets(lines)?;
     evaluate_labels(lines)
 }
 
@@ -342,6 +345,55 @@ fn evaluate_labels(
 
     for (i, replacement) in to_replace.into_iter() {
         lines[i] = PreprocessedInstruction::Changed(replacement);
+    }
+
+    Ok(lines)
+}
+
+/// Find instances of the #n free memory offset syntax and replace them with
+/// correct addresses based on the length of the program
+fn evaluate_memory_offsets(
+    mut lines: Vec<PreprocessedInstruction>,
+) -> Result<Vec<PreprocessedInstruction>, PreprocessingError> {
+    // determine where offset #0 is
+    let used_memory = 2 * lines.len();
+
+    // iterate over the instructions until we stop finding offsets
+    let mut found_changes = true;
+    while found_changes {
+        found_changes = false;
+
+        // keep track of instructions to swap out with evaluated alternatives
+        let mut to_replace = Vec::new();
+
+        for (i, line) in lines.iter().enumerate() {
+            if let Some(index) = line.find('#') {
+                found_changes = true;
+
+                // equivalent regex would be \#.+ but we throw an error if it's not numeric
+                let start = index + 1;
+                let mut end = index + 1;
+                // i hate that we need copy and an allocation
+                let chars = line.chars().collect::<Vec<_>>();
+                while !chars[end].is_whitespace() {
+                    end += 1;
+                }
+
+                let offset: usize = str::parse(&line[start..end])
+                    .map_err(|_| PreprocessingError::InvalidOffset(line.to_string()))?;
+
+                // replace the instruction with one that uses a raw decimal number instead
+                let mut replacement = line[0..index].to_string();
+                replacement.push_str(&(used_memory + offset).to_string());
+                replacement.push_str(&line[(end + 1)..]);
+
+                to_replace.push((i, replacement))
+            }
+        }
+
+        for (index, new_str) in to_replace.into_iter() {
+            lines[index] = PreprocessedInstruction::Changed(new_str)
+        }
     }
 
     Ok(lines)
