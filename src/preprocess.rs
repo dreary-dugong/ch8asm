@@ -375,8 +375,12 @@ fn evaluate_memory_offsets(
                 let mut end = index + 1;
                 // i hate that we need copy and an allocation
                 let chars = line.chars().collect::<Vec<_>>();
-                while !chars[end].is_whitespace() {
+                while end < chars.len() && !chars[end].is_whitespace() {
                     end += 1;
+                }
+
+                if start >= chars.len() {
+                    return Err(PreprocessingError::InvalidOffset(line.to_string()));
                 }
 
                 let offset: usize = str::parse(&line[start..end])
