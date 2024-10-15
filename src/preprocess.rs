@@ -389,7 +389,9 @@ fn evaluate_memory_offsets(
                 // replace the instruction with one that uses a raw decimal number instead
                 let mut replacement = line[0..index].to_string();
                 replacement.push_str(&(used_memory + offset).to_string());
-                replacement.push_str(&line[(end + 1)..]);
+                if end < line.len() - 1 {
+                    replacement.push_str(&line[(end + 1)..]);
+                }
 
                 to_replace.push((i, replacement))
             }
